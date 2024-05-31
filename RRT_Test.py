@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial import KDTree
-#123
-#Don't add bad comments like that
+
+
 class Node:
     def __init__(self, x, y, z):
         self.x = x
