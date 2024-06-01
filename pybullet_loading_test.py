@@ -5,11 +5,11 @@ import matplotlib.pyplot as plt
 import time
 import math
 
-physicsClient = p.connect(p.GUI)  # or p.DIRECT for non-graphical version p.GUI for graphical version
+physicsClient = p.connect(p.DIRECT)  # or p.DIRECT for non-graphical version p.GUI for graphical version
 p.setAdditionalSearchPath(pybullet_data.getDataPath())  # used to locate the .urdf file
 
 # Load URDF
-robot = p.loadURDF("571_robotic_arm_urdf_mesh/urdf/571_robotic_arm_urdf_mesh.urdf")
+robot = p.loadURDF("571robotic_arm_final_version/urdf/571robotic_arm_final_version.urdf")
 
 # You can replace the path above with the actual path of your URDF file
 
@@ -45,56 +45,55 @@ target_position = [0, 0, 0]  # The target position of the camera
 p.resetDebugVisualizerCamera(camera_distance, camera_yaw, camera_pitch, target_position)
 
 # Get the total number of joints
-num_joints = p.getNumJoints(robot)
+num_joints = p.getNumJoints(robot) -1
 
 # The index of the end effector is usually the last link
-end_effector_index = num_joints - 1
+end_effector_index = num_joints
 
-# Get the state of the end effector
-end_effector_state = p.getLinkState(robot, end_effector_index)
+# Define the maximum number of iterations and the residual threshold
+max_iterations = 1000
+residual_threshold = 1e-6
 
-# The position and orientation of the end effector in world coordinates
-end_effector_pos = end_effector_state[0]
-end_effector_orn = end_effector_state[1]
+# Get the initial state of the end effector
+initial_end_effector_state = p.getLinkState(robot, end_effector_index)
 
-print("End effector position:", end_effector_pos)
-print("End effector orientation:", end_effector_orn)
+# The initial position of the end effector in world coordinates
+initial_end_effector_pos = initial_end_effector_state[0]
 
-# Define the target position and orientation for the end effector
-target_pos = [0.3, 0.3, 0.5]  # Replace with your target position
+print(f"The initial position of the end effector is {initial_end_effector_pos}.")
 
-# Calculate the joint angles
-joint_angles = p.calculateInverseKinematics(robot, end_effector_index, target_pos)
+# Define the range of target positions
+x_range = np.linspace(-0.2, 0, 10)
+y_range = np.linspace(-0.2, 0, 10)
+z_range = np.linspace(0.15, 0.4, 10)
 
-# Set the joint angles
-for i in range(num_joints):
-    p.setJointMotorControl2(bodyUniqueId=robot,
-                            jointIndex=i,
-                            controlMode=p.POSITION_CONTROL,
-                            targetPosition=joint_angles[i])
+# Iterate over the target positions
+for x in x_range:
+    for y in y_range:
+        for z in z_range:
+            # Define the target position
+            target_pos = [x, y, z]
 
-# Step the simulation forward
-for _ in range(10000):  # Run the simulation for 10000 steps
-    p.stepSimulation()
-    time.sleep(1 / 240.)  # The simulation runs at 240 steps per second
+            # Calculate the joint angles
+            joint_angles = p.calculateInverseKinematics(robot, end_effector_index, target_pos, maxNumIterations=max_iterations, residualThreshold=residual_threshold)
 
-# # Define the joint index
-# joint_index = 0  # Change this to the index of the joint you want to control
+            # Set the joint angles
+            for i in range(min(num_joints, len(joint_angles))):
+                p.setJointMotorControl2(bodyUniqueId=robot,
+                                        jointIndex=i,
+                                        controlMode=p.POSITION_CONTROL,
+                                        targetPosition=joint_angles[i])
 
-# # Define the amplitude and frequency of the oscillation
-# amplitude = math.pi/2  # The joint will move +/- 45 degrees
-# frequency = 2  # The joint will complete a full oscillation in 2 seconds
+            # Step the simulation forward
+            for _ in range(400):
+                p.stepSimulation()
 
-# # Start the simulation
-# for i in range(10000):
-#     # Calculate the desired joint position
-#     joint_position = amplitude * math.sin(2 * math.pi * frequency * i / 240.)
-#
-#     # Set the joint position
-#     p.setJointMotorControl2(robot, joint_index, p.POSITION_CONTROL, joint_position)
-#
-#     # Step the simulation forward
-#     p.stepSimulation()
-#
-#     # Wait a bit to create a real-time simulation
-#     time.sleep(1 / 240.)  # The simulation runs at 240 steps per second
+            # Get the new state of the end effector
+            end_effector_state = p.getLinkState(robot, end_effector_index)
+
+            # The new position of the end effector in world coordinates
+            new_end_effector_pos = end_effector_state[0]
+
+            # Compare the new end effector position with the target position
+            if np.allclose(new_end_effector_pos, target_pos, atol=0.01):
+                print(f"For target position {target_pos}, the end effector reached the target position.")
