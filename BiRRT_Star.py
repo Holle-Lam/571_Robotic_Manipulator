@@ -116,7 +116,7 @@ class BiRRTStar:
         while node.parent is not None:
             path.append([node.x, node.y, node.z])
             node = node.parent
-        path.append([self.start.x, self.start.y, self.start.z])
+        #path.append([self.start.x, self.start.y, self.start.z])
         node = start_node.parent
         while node.parent is not None:
             path.append([node.x, node.y, node.z])
