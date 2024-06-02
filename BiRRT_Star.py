@@ -126,6 +126,6 @@ class BiRRTStar:
         while node.parent is not None:
             start_path.append([node.x, node.y, node.z])
             node = node.parent
-        goal_path.append([node.x, node.y, node.z])
+        start_path.append([node.x, node.y, node.z])
 
         return start_path[::-1] + goal_path
