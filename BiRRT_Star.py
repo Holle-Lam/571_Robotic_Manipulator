@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.spatial import KDTree
-#a class for the node
+#a class for the 
 
 class Node:
     def __init__(self, x, y, z):
