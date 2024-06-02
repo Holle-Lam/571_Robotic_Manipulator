@@ -103,7 +103,7 @@ ax.set_zlabel('Z')
 ax.legend()
 
 # Show the plot
-plt.show()
+# plt.show()
 
 # Convert the valid positions to a DataFrame
 df_valid_positions = pd.DataFrame(valid_positions, columns=['X', 'Y', 'Z'])
@@ -116,6 +116,33 @@ df_valid_positions.to_csv('valid_positions.csv', index=False)
 #
 # # Convert the DataFrame to a numpy array
 # valid_positions = df_valid_positions.values
+
+# Choose some valid positions to test
+test_positions = valid_positions[:5]  # Replace 5 with the number of positions you want to test
+
+# Iterate over the test positions
+for pos in test_positions:
+    # Calculate the joint angles for the position
+    joint_angles = p.calculateInverseKinematics(robot, num_joints, pos)
+    # Set the joint angles
+    for i in range(num_joints):
+        p.setJointMotorControl2(bodyUniqueId=robot,
+                                jointIndex=i,
+                                controlMode=p.POSITION_CONTROL,
+                                targetPosition=joint_angles[i])
+
+    # Step the simulation forward
+    p.stepSimulation()
+
+    # Get the new state of the end effector
+    end_effector_state = p.getLinkState(robot, num_joints - 1)
+
+    # The new position of the end effector in world coordinates
+    new_end_effector_pos = end_effector_state[0]
+
+    # Print the original and calculated positions
+    print(f"Original position: {pos}")
+    print(f"Calculated position: {new_end_effector_pos}")
 
 def is_point_valid(point, valid_positions):
     """
