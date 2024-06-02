@@ -1,5 +1,9 @@
 import numpy as np
 from scipy.spatial import KDTree
+import matplotlib.pyplot as plt
+import pybullet as p
+from ikpy.chain import Chain
+from ikpy.link import OriginLink, URDFLink
 #a class for the 
 
 class Node:
@@ -21,6 +25,7 @@ class BiRRTStar:
         self.goal_tree = [self.goal]
         self.start_kdtree = KDTree([[self.start.x, self.start.y, self.start.z]])
         self.goal_kdtree = KDTree([[self.goal.x, self.goal.y, self.goal.z]])
+        self.chain = Chain.from_urdf_file("571_robotic_arm_2.0/urdf/571_robotic_arm_2.0.urdf", active_links_mask=[False, True, True, True, True])
 
     def plan(self, max_iter=200): #duplicate part based on the RRTtest
         for i in range(max_iter):
@@ -60,6 +65,7 @@ class BiRRTStar:
                         from_node.y + distance * np.sin(theta) * np.sin(phi),
                         from_node.z + distance * np.cos(theta))
         new_node.parent = from_node
+        new_node.cost = from_node.cost + distance  # Set the cost of the new node
 
         return new_node
 
@@ -70,7 +76,7 @@ class BiRRTStar:
             neighbor_node = tree[i]
             if neighbor_node != new_node.parent:
                 d, theta, phi = self.calc_distance_and_angle(neighbor_node, new_node) #calculate the distance, theta and phi are the angle and not used in this function
-                if new_node.cost + d < neighbor_node.cost:
+                if new_node.cost + d < neighbor_node.cost and new_node!=neighbor_node:
                     neighbor_node.parent = new_node
                     neighbor_node.cost = new_node.cost + d
 
@@ -85,6 +91,10 @@ class BiRRTStar:
 
 
     def check_collision(self, node, parent_node):
+
+        if not self.valid_position(node):
+            return False # unachievable position
+
         for (ox, oy, oz, size) in self.obstacle_list:
             dx = ox - node.x
             dy = oy - node.y
@@ -129,3 +139,50 @@ class BiRRTStar:
         start_path.append([node.x, node.y, node.z])
 
         return start_path[::-1] + goal_path
+
+    def plot_trees(self, path):
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+
+        # Plot the start tree
+        for node in self.start_tree:
+            if node.parent:
+                xs = [node.x, node.parent.x]
+                ys = [node.y, node.parent.y]
+                zs = [node.z, node.parent.z]
+                ax.plot(xs, ys, zs, color='blue')
+
+        # Plot the goal tree
+        for node in self.goal_tree:
+            if node.parent:
+                xs = [node.x, node.parent.x]
+                ys = [node.y, node.parent.y]
+                zs = [node.z, node.parent.z]
+                ax.plot(xs, ys, zs, color='green')
+
+        # Plot the final path
+        if path is not None:
+            xs = [point[0] for point in path]
+            ys = [point[1] for point in path]
+            zs = [point[2] for point in path]
+            ax.plot(xs, ys, zs, color='red')
+
+        ax.scatter([self.start.x, self.goal.x], [self.start.y, self.goal.y], [self.start.z, self.goal.z],
+                   color='red')  # Start and goal points
+        plt.show()
+
+
+    def valid_position(self, node2):
+        # checks if the move from node1 to node2 is valid kinematically
+        # load the URDF file
+        joint_angles = self.chain.inverse_kinematics([node2.x, node2.y, node2.z])
+        # Compute the forward kinematics
+        end_effector_position = self.chain.forward_kinematics(joint_angles)
+
+        #calculate distance between new end effector position and node2
+        dx = end_effector_position[0] - node2.x
+        dy = end_effector_position[1] - node2.y
+        dz = end_effector_position[2] - node2.z
+        d = np.sqrt(dx * dx + dy * dy + dz * dz)
+
+        return d < 0.01

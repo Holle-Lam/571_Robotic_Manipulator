@@ -15,6 +15,9 @@ birrt_star = BiRRTStar(start, goal, obstacle_list, width=20, height=20, depth=20
 # Generate the path
 path = birrt_star.plan()
 
+# Plot the trees
+birrt_star.plot_trees(path)
+
 # Print the path
 if path is not None:
     print("Path found:")
@@ -33,3 +36,4 @@ if path is not None:
     ax.plot(xs, ys, zs)
     ax.scatter([start[0], goal[0]], [start[1], goal[1]], [start[2], goal[2]], color='red')  # Start and goal points
     plt.show()
+
