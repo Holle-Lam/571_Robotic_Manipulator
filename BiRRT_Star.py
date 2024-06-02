@@ -111,16 +111,21 @@ class BiRRTStar:
         return d, theta, phi
 
     def generate_final_course(self, start_node, goal_node):
-        path = [[self.goal.x, self.goal.y, self.goal.z]]
+        goal_path = []
+        start_path = []
+
+        #iterate through goal tree
         node = goal_node
         while node.parent is not None:
-            path.append([node.x, node.y, node.z])
+            goal_path.append([node.x, node.y, node.z])
             node = node.parent
-        #path.append([self.start.x, self.start.y, self.start.z])
-        node = start_node.parent
-        while node.parent is not None:
-            path.append([node.x, node.y, node.z])
-            node = node.parent
-        path.append([node.x, node.y, node.z])
+        goal_path.append([node.x, node.y, node.z])
 
-        return path
+        #iterate through start tree
+        node = start_node
+        while node.parent is not None:
+            start_path.append([node.x, node.y, node.z])
+            node = node.parent
+        goal_path.append([node.x, node.y, node.z])
+
+        return start_path[::-1] + goal_path
