@@ -35,7 +35,7 @@ class BiRRTStar:
                     self.rewire(self.start_tree, new_node, self.start_kdtree)   #rewire the tree
                     nearest_node_goal_tree = self.get_nearest_node(new_node, self.goal_tree, self.goal_kdtree)
 
-                    if self.calc_dist_to_goal(new_node, nearest_node_goal_tree) <= 1:   #check the distance to the goal
+                    if self.calc_distance_between_nodes(new_node, nearest_node_goal_tree) <= 1:   #check the distance to the goal
                         return self.generate_final_course(new_node, nearest_node_goal_tree)
             else: #goal direction -> start direction
                 rnd_node = self.get_random_node()
@@ -48,11 +48,11 @@ class BiRRTStar:
                     self.rewire(self.goal_tree, new_node, self.goal_kdtree)   #rewire the tree  
                     nearest_node_start_tree = self.get_nearest_node(new_node, self.start_tree, self.start_kdtree)
 
-                    if self.calc_dist_to_goal(new_node, nearest_node_start_tree) <= 1:
+                    if self.calc_distance_between_nodes(new_node, nearest_node_start_tree) <= 1:
                         return self.generate_final_course(nearest_node_start_tree, new_node)
         return None  # Cannot find path
 
-    def extend(self, from_node, to_node, length=float('inf')):
+    def extend(self, from_node, to_node, length=1):
         d, theta, phi = self.calc_distance_and_angle(from_node, to_node)
         distance = min(d, length)
 
@@ -95,10 +95,10 @@ class BiRRTStar:
 
         return True  # safe
 
-    def calc_dist_to_goal(self, x, y, z):
-        dx = x - self.goal.x
-        dy = y - self.goal.y
-        dz = z - self.goal.z
+    def calc_distance_between_nodes(self, node1, node2):
+        dx = node2.x - node1.x
+        dy = node2.y - node1.y
+        dz = node2.z - node1.z
         return np.sqrt(dx * dx + dy * dy + dz * dz)
 
     def calc_distance_and_angle(self, from_node, to_node):

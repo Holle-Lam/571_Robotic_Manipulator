@@ -4,7 +4,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 # Define the start and goal points
 start = [0, 0, 0]
-goal = [0.1, 0.1, 0.1]  # Very close to the start point
+goal = [20, 20, 20]  # Very close to the start point
 
 # Define the obstacle list
 obstacle_list = []  # No obstacles
