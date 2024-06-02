@@ -10,7 +10,7 @@ goal = [20, 20, 20]  # Very close to the start point
 obstacle_list = []  # No obstacles
 
 # Create an instance of the BiRRTStar class
-birrt_star = BiRRTStar(start, goal, obstacle_list, width=2, height=2, depth=2)
+birrt_star = BiRRTStar(start, goal, obstacle_list, width=20, height=20, depth=20)
 
 # Generate the path
 path = birrt_star.plan()

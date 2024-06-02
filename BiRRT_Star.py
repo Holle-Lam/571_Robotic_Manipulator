@@ -114,14 +114,14 @@ class BiRRTStar:
         goal_path = []
         start_path = []
 
-        #iterate through goal tree
+        # iterate through goal tree
         node = goal_node
         while node.parent is not None:
             goal_path.append([node.x, node.y, node.z])
             node = node.parent
         goal_path.append([node.x, node.y, node.z])
 
-        #iterate through start tree
+        # iterate through start tree
         node = start_node
         while node.parent is not None:
             start_path.append([node.x, node.y, node.z])
