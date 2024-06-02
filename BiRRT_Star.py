@@ -80,7 +80,9 @@ class BiRRTStar:
 
     def get_nearest_node(self, node, tree, kdtree):
         dist, ind = kdtree.query([[node.x, node.y, node.z]], k=1)
-        return tree[ind[0][0]]
+
+        return tree[int(ind)]
+
 
     def check_collision(self, node, parent_node):
         for (ox, oy, oz, size) in self.obstacle_list:
