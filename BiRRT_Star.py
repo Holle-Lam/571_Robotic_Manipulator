@@ -22,20 +22,34 @@ class BiRRTStar:
         self.start_kdtree = KDTree([[self.start.x, self.start.y, self.start.z]])
         self.goal_kdtree = KDTree([[self.goal.x, self.goal.y, self.goal.z]])
 
-    def plan(self, max_iter=200):
+    def plan(self, max_iter=200): #duplicate part based on the RRTtest
         for i in range(max_iter):
-            rnd_node = self.get_random_node()
-            nearest_node = self.get_nearest_node(rnd_node, self.start_tree, self.start_kdtree)
-            new_node = self.extend(nearest_node, rnd_node)
+            if i%2==0: #start direction -> goal direction
+                rnd_node = self.get_random_node()
+                nearest_node = self.get_nearest_node(rnd_node, self.start_tree, self.start_kdtree)
+                new_node = self.extend(nearest_node, rnd_node)
 
-            if self.check_collision(new_node, nearest_node):
-                self.start_tree.append(new_node)
-                self.start_kdtree = KDTree([[node.x, node.y, node.z] for node in self.start_tree])
+                if self.check_collision(new_node, nearest_node):
+                    self.start_tree.append(new_node)
+                    self.start_kdtree = KDTree([[node.x, node.y, node.z] for node in self.start_tree]) #add the kdtree start direction -> goal direction
+                    self.rewire(self.start_tree, new_node, self.start_kdtree)   #rewire the tree
+                    nearest_node_goal_tree = self.get_nearest_node(new_node, self.goal_tree, self.goal_kdtree)
 
-                nearest_node_goal_tree = self.get_nearest_node(new_node, self.goal_tree, self.goal_kdtree)
-                if self.calc_dist_to_goal(new_node, nearest_node_goal_tree) <= 1:
-                    return self.generate_final_course(new_node, nearest_node_goal_tree)
+                    if self.calc_dist_to_goal(new_node, nearest_node_goal_tree) <= 1:   #check the distance to the goal
+                        return self.generate_final_course(new_node, nearest_node_goal_tree)
+            else: #goal direction -> start direction
+                rnd_node = self.get_random_node()
+                nearest_node = self.get_nearest_node(rnd_node, self.goal_tree, self.goal_kdtree)
+                new_node = self.extend(nearest_node, rnd_node)
 
+                if self.check_collision(new_node, nearest_node):
+                    self.goal_tree.append(new_node)
+                    self.goal_kdtree = KDTree([[node.x, node.y, node.z] for node in self.goal_tree]) #add the kdtree goal direction -> start direction
+                    self.rewire(self.goal_tree, new_node, self.goal_kdtree)   #rewire the tree  
+                    nearest_node_start_tree = self.get_nearest_node(new_node, self.start_tree, self.start_kdtree)
+
+                    if self.calc_dist_to_goal(new_node, nearest_node_start_tree) <= 1:
+                        return self.generate_final_course(nearest_node_start_tree, new_node)
         return None  # Cannot find path
 
     def extend(self, from_node, to_node, length=float('inf')):
@@ -48,6 +62,17 @@ class BiRRTStar:
         new_node.parent = from_node
 
         return new_node
+
+    def rewire(self, tree, new_node, kdtree):
+        radius = 10.0
+        neighbor_indices = kdtree.query_ball_point([new_node.x, new_node.y, new_node.z], radius) #find the neighbors within the radius
+        for i in neighbor_indices:
+            neighbor_node = tree[i]
+            if neighbor_node != new_node.parent:
+                d, theta, phi = self.calc_distance_and_angle(neighbor_node, new_node) #calculate the distance, theta and phi are the angle and not used in this function
+                if new_node.cost + d < neighbor_node.cost:
+                    neighbor_node.parent = new_node
+                    neighbor_node.cost = new_node.cost + d
 
     def get_random_node(self):
         rnd = Node(np.random.uniform(0, self.width), np.random.uniform(0, self.height), np.random.uniform(0, self.depth))
