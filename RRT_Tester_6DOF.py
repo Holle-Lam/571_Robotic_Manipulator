@@ -2,6 +2,7 @@ from BiRRT_Star import BiRRTStar, Node
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import pybullet as p
+import pybullet_data
 import time
 
 # Define the start and goal points

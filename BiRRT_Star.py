@@ -14,20 +14,27 @@ class Node:
         self.cost = 0
         self.parent = None
 class BiRRTStar:
-    def __init__(self, start, goal, obstacle_list, width, height, depth):
+    def __init__(self, start, goal, obstacle_list):
         self.start = Node(start[0], start[1], start[2])
         self.goal = Node(goal[0], goal[1], goal[2])
-        self.width = width
-        self.height = height
-        self.depth = depth
+        self.chain = Chain.from_urdf_file("571_robotic_arm_2.0/urdf/571_robotic_arm_2.0.urdf", active_links_mask=[False, True, True, True, True])
+        self.base_link_offset = [-0.0191416107228431, 0.0401313314432728,
+                                 0.00504410822541169]  # the offset of the base link
+        # throw exception if the start and goal are not valid
+        if not self.valid_position(self.start):
+            raise ValueError("Invalid start position")
+
+        if not self.valid_position(self.goal):
+            raise ValueError("Invalid goal position")
+
         self.obstacle_list = obstacle_list
         self.start_tree = [self.start]
         self.goal_tree = [self.goal]
         self.start_kdtree = KDTree([[self.start.x, self.start.y, self.start.z]])
         self.goal_kdtree = KDTree([[self.goal.x, self.goal.y, self.goal.z]])
-        self.chain = Chain.from_urdf_file("571_robotic_arm_2.0/urdf/571_robotic_arm_2.0.urdf", active_links_mask=[False, True, True, True, True])
+        self.extend_length = 0.01
 
-    def plan(self, max_iter=200): #duplicate part based on the RRTtest
+    def plan(self, max_iter=500): #duplicate part based on the RRTtest
         for i in range(max_iter):
             if i%2==0: #start direction -> goal direction
                 rnd_node = self.get_random_node()
@@ -40,7 +47,7 @@ class BiRRTStar:
                     self.rewire(self.start_tree, new_node, self.start_kdtree)   #rewire the tree
                     nearest_node_goal_tree = self.get_nearest_node(new_node, self.goal_tree, self.goal_kdtree)
 
-                    if self.calc_distance_between_nodes(new_node, nearest_node_goal_tree) <= 1:   #check the distance to the goal
+                    if self.calc_distance_between_nodes(new_node, nearest_node_goal_tree) <= self.extend_length:   #check the distance to the goal
                         return self.generate_final_course(new_node, nearest_node_goal_tree)
             else: #goal direction -> start direction
                 rnd_node = self.get_random_node()
@@ -53,11 +60,12 @@ class BiRRTStar:
                     self.rewire(self.goal_tree, new_node, self.goal_kdtree)   #rewire the tree  
                     nearest_node_start_tree = self.get_nearest_node(new_node, self.start_tree, self.start_kdtree)
 
-                    if self.calc_distance_between_nodes(new_node, nearest_node_start_tree) <= 1:
+                    if self.calc_distance_between_nodes(new_node, nearest_node_start_tree) <= self.extend_length:   #check the distance to the start
                         return self.generate_final_course(nearest_node_start_tree, new_node)
         return None  # Cannot find path
 
-    def extend(self, from_node, to_node, length=1):
+    def extend(self, from_node, to_node):
+        length = self.extend_length
         d, theta, phi = self.calc_distance_and_angle(from_node, to_node)
         distance = min(d, length)
 
@@ -70,7 +78,7 @@ class BiRRTStar:
         return new_node
 
     def rewire(self, tree, new_node, kdtree):
-        radius = 10.0
+        radius = .05
         neighbor_indices = kdtree.query_ball_point([new_node.x, new_node.y, new_node.z], radius) #find the neighbors within the radius
         for i in neighbor_indices:
             neighbor_node = tree[i]
@@ -81,7 +89,11 @@ class BiRRTStar:
                     neighbor_node.cost = new_node.cost + d
 
     def get_random_node(self):
-        rnd = Node(np.random.uniform(0, self.width), np.random.uniform(0, self.height), np.random.uniform(0, self.depth))
+        """Generates a random node placed within the bounding box of the environment."""
+        x_min, x_max, y_min, y_max, z_min, z_max = self.bounding_box()
+        rnd = Node(np.random.uniform(x_min, x_max),
+                   np.random.uniform(y_min, y_max),
+                   np.random.uniform(z_min, z_max))
         return rnd
 
     def get_nearest_node(self, node, tree, kdtree):
@@ -116,6 +128,8 @@ class BiRRTStar:
         dy = to_node.y - from_node.y
         dz = to_node.z - from_node.z
         d = np.sqrt(dx * dx + dy * dy + dz * dz)
+        if d == 0:
+            return d, 0, 0
         theta = np.arccos(dz / d)
         phi = np.arctan2(dy, dx)
         return d, theta, phi
@@ -174,15 +188,39 @@ class BiRRTStar:
 
     def valid_position(self, node2):
         # checks if the move from node1 to node2 is valid kinematically
-        # load the URDF file
-        joint_angles = self.chain.inverse_kinematics([node2.x, node2.y, node2.z])
+
+        # offset the base link so that the base link is at the origin
+
+        # Compute the inverse kinematics
+        joint_angles = self.chain.inverse_kinematics([node2.x + self.base_link_offset[0],
+                                                      node2.y + self.base_link_offset[1],
+                                                      node2.z + self.base_link_offset[2]])
         # Compute the forward kinematics
         end_effector_position = self.chain.forward_kinematics(joint_angles)
 
+        # extract translational coordinates of the end effector
+        x = end_effector_position[0, 3] - self.base_link_offset[0]
+        y = end_effector_position[1, 3] - self.base_link_offset[1]
+        z = end_effector_position[2, 3] - self.base_link_offset[2]
+
         #calculate distance between new end effector position and node2
-        dx = end_effector_position[0] - node2.x
-        dy = end_effector_position[1] - node2.y
-        dz = end_effector_position[2] - node2.z
+        dx = x - node2.x
+        dy = y - node2.y
+        dz = z - node2.z
         d = np.sqrt(dx * dx + dy * dy + dz * dz)
 
-        return d < 0.01
+        return np.all(d < 0.025)  # check if the distance is less than 0.01
+
+    def bounding_box(self):
+        """
+        This function returns a bounding box that contains enough space to cover the entire robot's workspace.
+        """
+        # Define the bounding box
+        x_min = -0.4
+        x_max = 0.4
+        y_min = -0.4
+        y_max = 0.4
+        z_min = 0.0
+        z_max = 0.4
+
+        return x_min, x_max, y_min, y_max, z_min, z_max
